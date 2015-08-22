@@ -1,0 +1,164 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ * Used to add items to cart based on add to cart urls & build cart email form
+ */
+function commerce_email_cart_menu() {
+  $items = array();
+  $items['commerce/add-to-cart/%'] = array(
+    'title' => t('Add item to cart'),
+    'type' => MENU_CALLBACK,
+    'page callback' => 'commerce_email_cart_add_to_cart',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+  );
+  $items['commerce/email-cart'] = array(
+    'title' => t('Email Cart'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('commerce_email_cart_form'),
+    'access arguments' => array('access content'),
+    'file' => 'commerce_email_cart_form.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Programmatically adds an item to a cart by product id.
+ * Add to cart url to be created as follows commerce/add-to-cart/1-2,2-2.
+ * Where 1-2 is productID-productQTY.
+ */
+function commerce_email_cart_add_to_cart($data) {
+  $products = explode(',', $data);
+  $error_msg = t('Add to Cart URL Syntax Error');
+
+  // Loop through products
+  foreach ($products as $delta => $product) {
+    $product = explode('-', $product);
+
+    if (isset($product[0]) && isset($product[1])) {
+      // Run strings through sanitization functions.
+      $product_id = check_plain($product[0]);
+      $quantity = check_plain($product[1]);
+
+      // Add product to the cart.
+      commerce_cart_product_add_by_id($product_id, $quantity);
+    }
+    else {
+      // Set error message.
+      drupal_set_message($error_msg, 'error');
+    }
+  }
+
+  // Go to the cart page.
+  drupal_goto('cart');
+}
+
+/**
+ * Builds and returns custom add to cart link based on current user's cart.
+ */
+function commerce_cart_email_build_link() {
+  global $base_url;
+  global $user;
+
+  // Ger user id.
+  $uid = 0;
+  if ($user->uid != 0) {
+    $uid = $user->uid;
+  }
+
+  // Load current user's order id.
+  $order_id = commerce_cart_order_load($uid);
+
+  if (isset($order_id->commerce_line_items['und'])) {
+    $line_items = $order_id->commerce_line_items['und'];
+
+    // Build products array from order id.
+    foreach ($line_items as $line_item) {
+      $line_item_id = $line_item['line_item_id'];
+      $product = commerce_line_item_load($line_item_id)->commerce_product['und'][0]['product_id'];
+      $quantity = commerce_line_items_quantity($line_item);
+
+      $products[] = array(
+        'product' => $product,
+        'quantity' => $quantity
+      );
+    }
+
+    $link = $base_url . '/commerce/add-to-cart/';
+
+    foreach ($products as $product) {
+      $product_id = $product['product'];
+      $product_qty = $product['quantity'];
+      $link .= $product_id . '-' . $product_qty . ',';
+    }
+
+    $link = substr($link, 0, -1);
+
+    return $link;
+  }
+  else {
+    drupal_set_message(t('You need to add some products to your cart before you can send an email.'), 'error');
+  }
+
+}
+
+/*
+ * Implements hook_block_info().
+ */
+function commerce_email_cart_block_info() {
+  // Set commerce_email_cart block info.
+  $blocks['commerce_email_cart'] = array(
+    'info' => t('Commerce Email Cart Block')
+  );
+
+  return $blocks;
+}
+
+/*
+ * Build block content.
+ */
+function commerce_email_cart_build_block(){
+  // Get global variables.
+  global $base_url;
+
+  // Build email cart link to be displayed in a block.
+  $options = array(
+    'html' => TRUE,
+    'attributes' => array(
+      'class' => array('commerce-email-cart--link'),
+    ),
+  );
+  $image = $base_url . '/' . drupal_get_path('module', 'commerce_email_cart') . "/images/email.png";
+  $output_html = "<label class='commerce-email-cart--label'>Email Cart</label> <img src='$image' />";
+  $output = l($output_html, 'commerce/email-cart', $options);
+
+  return $output;
+}
+
+/*
+ * Implements hook_block_view().
+ */
+function commerce_email_cart_block_view($delta = '') {
+  // Build commerce_email_cart block.
+  $block = array();
+
+  switch ($delta) {
+    case 'commerce_email_cart':
+      $block['content'] = array(
+        '#type' => 'markup',
+        '#markup' => commerce_email_cart_build_block(),
+      );
+      break;
+  }
+
+  return $block;
+}
+
+/*
+ * Email the add to cart links
+ */
+function commerce_email_cart_email() {
+  drupal_set_message('email cart', 'status');
+}

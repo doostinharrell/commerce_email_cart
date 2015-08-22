@@ -1,0 +1,16 @@
+.block-commerce-email-cart {
+  float: right;
+  padding: 20px 0;
+}
+
+.block-commerce-email-cart label.commerce-email-cart--label {
+  display: inline;
+}
+
+.block-commerce-email-cart #commerce-email-cart--form {
+  display: none;
+}
+
+.block-commerce-email-cart label.commerce-email-cart--label:hover, .block-commerce-email-cart a:hover {
+  cursor: pointer;
+}

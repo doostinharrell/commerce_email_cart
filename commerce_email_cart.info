@@ -1,0 +1,8 @@
+name = Commerce Email Cart
+description = Introduces feature allowing website visitors to email their shopping cart.
+core = 7.x
+package = Commerce (contrib)
+
+dependencies[] = commerce_checkout
+
+stylesheets[all][] = css/commerce-email-cart.css
